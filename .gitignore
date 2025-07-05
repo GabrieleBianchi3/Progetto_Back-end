@@ -1,0 +1,12 @@
+# Ambienti virtuali
+.venv/
+
+# Configurazioni IDE
+.idea/
+
+# File compilati
+__pycache__/
+*.pyc
+
+# File ambiente
+.env
