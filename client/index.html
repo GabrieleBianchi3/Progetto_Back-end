@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Polling App – Client</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container py-4">
+
+  <h1 class="mb-4">Polling App</h1>
+
+  <!-- Login Form -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Login</h5>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <input type="text" id="username" class="form-control" placeholder="Username">
+        </div>
+        <div class="col-md-4">
+          <input type="password" id="password" class="form-control" placeholder="Password">
+        </div>
+        <div class="col-md-4 d-grid">
+          <button onclick="login()" class="btn btn-primary">Login</button>
+        </div>
+      </div>
+      <p class="mt-2 text-success" id="token-info"></p>
+      <p class="text-danger" id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- Register -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Oppure registrati</h5>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <input type="text" id="reg-username" class="form-control" placeholder="Username">
+        </div>
+        <div class="col-md-4">
+          <input type="password" id="reg-password" class="form-control" placeholder="Password">
+        </div>
+        <div class="col-md-4 d-grid">
+          <button onclick="register()" class="btn btn-secondary">Registrati</button>
+        </div>
+      </div>
+      <p class="mt-2 text-success" id="register-info"></p>
+      <p class="text-danger" id="register-error"></p>
+    </div>
+  </div>
+
+  <!-- Polls -->
+  <div class="mb-4">
+    <button onclick="loadPolls()" class="btn btn-outline-success">Carica Sondaggi</button>
+  </div>
+
+  <ul id="poll-list" class="list-group mb-4"></ul>
+
+  <!-- Result -->
+  <div id="results-section" class="card" style="display:none;">
+    <div class="card-body">
+      <h5 class="card-title">Risultati</h5>
+      <div id="results-output"></div>
+    </div>
+  </div>
+
+  <script>
+    let accessToken = '';
+
+    function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      fetch("/api/token/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => res.json().then(data => ({ status: res.status, body: data })))
+      .then(({ status, body }) => {
+        if (status === 200 && body.access) {
+          accessToken = body.access;
+          document.getElementById("token-info").innerText = "Login effettuato con successo!";
+          document.getElementById("login-error").innerText = "";
+        } else {
+          document.getElementById("login-error").innerText = "Credenziali errate.";
+        }
+      });
+    }
+
+    function register() {
+      const username = document.getElementById("reg-username").value;
+      const password = document.getElementById("reg-password").value;
+
+      fetch("/api/register/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => res.json().then(data => ({ status: res.status, body: data })))
+      .then(({ status, body }) => {
+        if (status === 201) {
+          document.getElementById("register-info").innerText = "Registrazione completata!";
+          document.getElementById("register-error").innerText = "";
+        } else {
+          document.getElementById("register-error").innerText = "Errore nella registrazione.";
+        }
+      });
+    }
+
+    function loadPolls() {
+      fetch("/api/polls/")
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById("poll-list");
+          list.innerHTML = "";
+          data.forEach(poll => {
+            const li = document.createElement("li");
+            li.className = "list-group-item";
+            li.innerHTML = `
+              <strong>${poll.title}</strong><br>${poll.description}<br>
+              <button class="btn btn-sm btn-primary mt-1" onclick="loadChoices(${poll.id})">Vota</button>
+              <button class="btn btn-sm btn-secondary mt-1" onclick="viewResults(${poll.id})">Risultati</button>
+            `;
+            list.appendChild(li);
+          });
+        });
+    }
+
+    function loadChoices(pollId) {
+      fetch(`/api/polls/${pollId}/`)
+        .then(res => res.json())
+        .then(poll => {
+          const list = poll.choices.map(c =>
+            `<input type="radio" name="choice" value="${c.id}"> ${c.text}`).join("<br>");
+
+          const voteForm = `
+            <h5>Vota in: ${poll.title}</h5>
+            ${list}<br><br>
+            <button class="btn btn-success" onclick="sendVote(${pollId})">Invia voto</button>
+          `;
+
+          document.getElementById("results-output").innerHTML = voteForm;
+          document.getElementById("results-section").style.display = "block";
+        });
+    }
+
+    function sendVote(pollId) {
+      const selected = document.querySelector('input[name="choice"]:checked');
+      if (!selected) return alert("Seleziona un'opzione!");
+
+      fetch(`/api/polls/${pollId}/vote/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + accessToken
+        },
+        body: JSON.stringify({ choice: parseInt(selected.value) })
+      })
+      .then(res => {
+        if (res.status === 201) {
+          alert("Voto registrato!");
+          viewResults(pollId);
+        } else {
+          res.json().then(data => alert("Errore: " + JSON.stringify(data)));
+        }
+      });
+    }
+
+    function viewResults(pollId) {
+      fetch(`/api/polls/${pollId}/results/`)
+        .then(res => res.json())
+        .then(data => {
+          let html = `<h6>${data.poll}</h6><ul>`;
+          data.results.forEach(r => {
+            html += `<li>${r.choice}: ${r.votes} voti (${r.percentage}%)</li>`;
+          });
+          html += `</ul><p>Totale voti: ${data.total_votes}</p>`;
+          document.getElementById("results-output").innerHTML = html;
+          document.getElementById("results-section").style.display = "block";
+        });
+    }
+  </script>
+</body>
+</html>
