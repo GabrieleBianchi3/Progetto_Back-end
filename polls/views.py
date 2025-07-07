@@ -1,13 +1,40 @@
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from django.db import transaction
-from .models import Poll, Choice, Vote
-from .serializers import (
-    PollListSerializer, PollDetailSerializer,
-    PollCreateSerializer, VoteSerializer
-)
+from rest_framework.views import APIView
+
+from .models import Poll, Vote
+from .permissions import IsOwnerOrReadOnly
+from .serializers import PollListSerializer, PollDetailSerializer, PollCreateSerializer, VoteSerializer
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        import json
+        data = json.loads(request.body)
+
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            return JsonResponse({"error": "Username e password obbligatori"}, status=400)
+
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({"error": "Username già registrato"}, status=400)
+
+        User.objects.create_user(username=username, password=password)
+        return JsonResponse({"message": "Registrazione completata"}, status=201)
+
 
 
 class PollListCreateView(generics.ListCreateAPIView):
@@ -37,36 +64,10 @@ class PollListCreateView(generics.ListCreateAPIView):
 
 
 class PollDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    GET: Dettaglio sondaggio con scelte (tutti)
-    PUT/PATCH: Modifica sondaggio (solo creatore)
-    DELETE: Elimina sondaggio (solo creatore)
-    """
     queryset = Poll.objects.filter(is_active=True)
     serializer_class = PollDetailSerializer
+    permission_classes = [IsOwnerOrReadOnly]
 
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
-
-    def update(self, request, *args, **kwargs):
-        poll = self.get_object()
-        if poll.created_by != request.user:
-            return Response(
-                {'error': 'You can only edit your own polls'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        poll = self.get_object()
-        if poll.created_by != request.user:
-            return Response(
-                {'error': 'You can only delete your own polls'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().destroy(request, *args, **kwargs)
 
 
 @api_view(['POST'])

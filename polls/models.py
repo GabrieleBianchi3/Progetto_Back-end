@@ -20,9 +20,6 @@ class Poll(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
-    # Statistiche
-    total_votes = models.IntegerField(default=0)
-
     class Meta:
         ordering = ['-created_at']
         db_table = 'polls'
@@ -36,6 +33,10 @@ class Poll(models.Model):
             return timezone.now() > self.expires_at
         return False
 
+    @property
+    def total_votes(self):
+        return self.votes.count()
+
 
 class Choice(models.Model):
     """
@@ -48,7 +49,6 @@ class Choice(models.Model):
         related_name='choices'
     )
     text = models.CharField(max_length=200)
-    votes_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -57,6 +57,10 @@ class Choice(models.Model):
 
     def __str__(self):
         return f"{self.poll.title} - {self.text}"
+
+    @property
+    def votes_count(self):
+        return self.votes.count()
 
 
 class Vote(models.Model):
@@ -83,8 +87,7 @@ class Vote(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     class Meta:
-        # Un utente può votare solo una volta per sondaggio
-        unique_together = ('user', 'poll')
+        unique_together = ('user', 'poll')  # 1 voto per sondaggio
         ordering = ['-voted_at']
         db_table = 'votes'
 

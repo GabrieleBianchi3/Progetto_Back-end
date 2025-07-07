@@ -13,4 +13,5 @@ urlpatterns = [
     path('client/', TemplateView.as_view(template_name="index.html")),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),        # login
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),        # rinnovo token
+    path('', TemplateView.as_view(template_name="index.html")),
 ]

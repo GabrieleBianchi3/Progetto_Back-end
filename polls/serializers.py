@@ -64,9 +64,19 @@ class VoteSerializer(serializers.ModelSerializer):
         fields = ['choice', 'voted_at']
 
     def create(self, validated_data):
-        # Aggiungi automaticamente user e poll
+        user = self.context['request'].user
+
+        if user.is_anonymous:
+            raise serializers.ValidationError("Autenticazione richiesta per votare.")
+
         choice = validated_data['choice']
-        validated_data['poll'] = choice.poll
-        validated_data['user'] = self.context['request'].user
+        poll = choice.poll
+
+        # Impedisce di votare più volte sullo stesso sondaggio
+        if Vote.objects.filter(poll=poll, user=user).exists():
+            raise serializers.ValidationError("Hai già votato per questo sondaggio.")
+
+        validated_data['poll'] = poll
+        validated_data['user'] = user
 
         return super().create(validated_data)

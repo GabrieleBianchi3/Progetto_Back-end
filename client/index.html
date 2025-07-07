@@ -91,42 +91,61 @@
     function register() {
       const username = document.getElementById("reg-username").value;
       const password = document.getElementById("reg-password").value;
-
       fetch("/api/register/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ username, password })
       })
-      .then(res => res.json().then(data => ({ status: res.status, body: data })))
-      .then(({ status, body }) => {
-        if (status === 201) {
-          document.getElementById("register-info").innerText = "Registrazione completata!";
-          document.getElementById("register-error").innerText = "";
-        } else {
-          document.getElementById("register-error").innerText = "Errore nella registrazione.";
-        }
-      });
+              .then(res => {
+                if (res.ok) {
+                  alert("Registrazione completata. Ora puoi effettuare il login.");
+                } else {
+                  res.json().then(data => alert("Errore nella registrazione:\n" + JSON.stringify(data)));
+                }
+              })
+              .catch(() => alert("Errore di connessione."));
     }
+
 
     function loadPolls() {
-      fetch("/api/polls/")
-        .then(res => res.json())
-        .then(data => {
-          const list = document.getElementById("poll-list");
-          list.innerHTML = "";
-          data.forEach(poll => {
-            const li = document.createElement("li");
-            li.className = "list-group-item";
-            li.innerHTML = `
-              <strong>${poll.title}</strong><br>${poll.description}<br>
-              <button class="btn btn-sm btn-primary mt-1" onclick="loadChoices(${poll.id})">Vota</button>
-              <button class="btn btn-sm btn-secondary mt-1" onclick="viewResults(${poll.id})">Risultati</button>
-            `;
-            list.appendChild(li);
-          });
-        });
-    }
+    fetch("/api/polls/")
+      .then(res => {
+        if (!res.ok) {
+          throw new Error("Errore nella richiesta: " + res.status);
+        }
+        return res.json();
+      })
+      .then(data => {
+        console.log("Risposta ricevuta da /api/polls/:", data);
 
+        // Se la risposta è un oggetto con "results", usiamo quello
+        const polls = Array.isArray(data) ? data : data.results;
+
+        if (!Array.isArray(polls)) {
+          throw new Error("Formato dei dati inatteso: non è un array");
+        }
+
+        const list = document.getElementById("poll-list");
+        list.innerHTML = "";
+
+        polls.forEach(poll => {
+          const li = document.createElement("li");
+          li.className = "list-group-item";
+          li.innerHTML = `
+            <strong>${poll.title}</strong><br>${poll.description || ""}<br>
+            <button class="btn btn-sm btn-primary mt-1" onclick="loadChoices(${poll.id})">Vota</button>
+            <button class="btn btn-sm btn-secondary mt-1" onclick="viewResults(${poll.id})">Risultati</button>
+          `;
+          list.appendChild(li);
+        });
+      })
+      .catch(error => {
+        console.error("Errore durante il caricamento dei sondaggi:", error);
+        alert("Errore nel caricamento dei sondaggi. Controlla la console per i dettagli.");
+      });
+  }
     function loadChoices(pollId) {
       fetch(`/api/polls/${pollId}/`)
         .then(res => res.json())
@@ -169,16 +188,15 @@
 
     function viewResults(pollId) {
       fetch(`/api/polls/${pollId}/results/`)
-        .then(res => res.json())
-        .then(data => {
-          let html = `<h6>${data.poll}</h6><ul>`;
-          data.results.forEach(r => {
-            html += `<li>${r.choice}: ${r.votes} voti (${r.percentage}%)</li>`;
-          });
-          html += `</ul><p>Totale voti: ${data.total_votes}</p>`;
-          document.getElementById("results-output").innerHTML = html;
-          document.getElementById("results-section").style.display = "block";
-        });
+              .then(res => res.json())
+              .then(data => {
+                let msg = `Risultati per: ${data.poll}\n\n`;
+                data.results.forEach(choice => {
+                  msg += `- ${choice.choice}: ${choice.votes} voti\n`;
+                });
+                alert(msg);
+              })
+              .catch(() => alert("Errore nel recupero dei risultati."));
     }
   </script>
 </body>
