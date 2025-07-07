@@ -9,6 +9,13 @@
 
   <h1 class="mb-4">Polling App</h1>
 
+
+  <div class="mb-3">
+    <button id="logout-btn" onclick="logout()" class="btn btn-danger" style="display: none;">Logout</button>
+    <a id="admin-btn" href="/admin/" target="_blank" class="btn btn-warning" style="display: none;">Area Admin</a>
+  </div>
+
+
   <!-- Login Form -->
   <div class="card mb-4">
     <div class="card-body">
@@ -76,17 +83,39 @@
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ username, password })
       })
-      .then(res => res.json().then(data => ({ status: res.status, body: data })))
-      .then(({ status, body }) => {
-        if (status === 200 && body.access) {
-          accessToken = body.access;
-          document.getElementById("token-info").innerText = "Login effettuato con successo!";
-          document.getElementById("login-error").innerText = "";
-        } else {
-          document.getElementById("login-error").innerText = "Credenziali errate.";
-        }
-      });
+              .then(res => res.json().then(data => ({ status: res.status, body: data })))
+              .then(({ status, body }) => {
+                if (status === 200 && body.access) {
+                  accessToken = body.access;
+                  document.getElementById("logout-btn").style.display = "inline-block";
+                  document.getElementById("admin-btn").style.display = "inline-block";
+                  document.getElementById("token-info").innerText = "Login effettuato con successo!";
+                  document.getElementById("login-error").innerText = "";
+
+                  // Nasconde i form di login/registrazione e mostra logout
+                  document.querySelector(".card:nth-of-type(1)").style.display = "none";
+                  document.querySelector(".card:nth-of-type(2)").style.display = "none";
+                  document.getElementById("logout-btn").style.display = "inline-block";
+                } else {
+                  document.getElementById("login-error").innerText = "Credenziali errate.";
+                }
+              });
     }
+
+    function logout() {
+      accessToken = '';
+      document.getElementById("token-info").innerText = "";
+      document.getElementById("login-error").innerText = "";
+      document.getElementById("logout-btn").style.display = "none";
+      document.getElementById("admin-btn").style.display = "none";
+
+  // Mostra login/registrazione
+      document.querySelector(".card:nth-of-type(1)").style.display = "block";
+      document.querySelector(".card:nth-of-type(2)").style.display = "block";
+
+  alert("Logout effettuato.");
+    }
+
 
     function register() {
       const username = document.getElementById("reg-username").value;
